@@ -145,52 +145,82 @@ const provider2PayloadMock = {
 
 describe('PayloadsToBaseDto: Provider1 Transform', () => {
   const providerTransform = new Provider1.PayloadTransformer();
-  const { offers } = provider1PayloadMock.response;
-
-  const transformed = offers.map((offer) =>
-    providerTransform.transformToBase(offer),
+  const { offers } = provider1PayloadMock.response as any;
+  offers.push(
+    {
+      ...offers[0],
+      offer_id: 111,
+    },
+    {
+      ...offers[0],
+      offer_id: undefined,
+    },
   );
 
-  it('provider1: transformed should be same length as offers', () => {
-    expect(transformed.length).toBe(1);
-  });
-
-  it('provider1: should be successfully mapped', () => {
-    const transformedData = transformed[0];
+  it('provider1: Offer should be successfully transformed', async () => {
     const offer = offers[0];
-    transformedData.name = offer.offer_id;
-    transformedData.description = offer.offer_name;
-    transformedData.requirements = offer.call_to_action;
-    transformedData.offerUrlTemplate = offer.offer_url;
-    transformedData.thumbnail = offer.image_url;
-    transformedData.isDesktop = 0;
-    transformedData.isAndroid = 0;
-    transformedData.isIos = 1;
+    const transformedData = await providerTransform.transformToBase(offers[0]);
+    expect(transformedData.name).toBe(offer.offer_id);
+    expect(transformedData.description).toBe(offer.offer_name);
+    expect(transformedData.requirements).toBe(offer.call_to_action);
+    expect(transformedData.offerUrlTemplate).toBe(offer.offer_url);
+    expect(transformedData.thumbnail).toBe(offer.image_url);
+    expect(transformedData.isDesktop).toBe(0);
+    expect(transformedData.isAndroid).toBe(0);
+    expect(transformedData.isIos).toBe(1);
+  });
+  it('provider1: Offer should be failed transformed cuz offer_id validation not passed string to be integer', async () => {
+    try {
+      await providerTransform.transformToBase(offers[1]);
+    } catch (error) {
+      expect(error.message).toBe('validation Error');
+      expect(Array.isArray(error.data)).toBe(true);
+    }
+  });
+  it('provider1: Offer should be failed transformed cuz name is required', async () => {
+    try {
+      await providerTransform.transformToBase(offers[2]);
+    } catch (error) {
+      expect(error.message).toBe('validation Error');
+      expect(Array.isArray(error.data)).toBe(true);
+    }
   });
 });
 describe('PayloadsToBaseDto: Provider2 Transform', () => {
   const providerTransform = new Provider2.PayloadTransformer();
   const offers = Object.values(provider2PayloadMock.data);
 
-  const transformed = offers.map((offer) =>
-    providerTransform.transformToBase(offer),
-  );
-
-  it('provider2: transformed should be same length as offers', () => {
-    expect(transformed.length).toBe(1);
+  it('provider2: Offer should be successfully transformed', async () => {
+    const offer = offers[0];
+    const { Offer } = offer;
+    const transformedData = await providerTransform.transformToBase(offers[0]);
+    expect(transformedData.name).toBe(Offer.name);
+    expect(transformedData.description).toBe(Offer.description);
+    expect(transformedData.requirements).toBe(Offer.instructions);
+    expect(transformedData.offerUrlTemplate).toBe(offer.Offer.tracking_url);
+    expect(transformedData.isDesktop).toBe(1);
+    expect(transformedData.isAndroid).toBe(0);
+    expect(transformedData.isIos).toBe(1);
   });
 
-  it('provider:2 should be successfully mapped', () => {
-    const transformedData = transformed[0];
-    const offer = provider2PayloadMock.data['15828'];
-    const { Offer } = offer;
-    transformedData.externalOfferId = Offer.campaign_id.toString();
-    transformedData.name = Offer.name;
-    transformedData.offerUrlTemplate = Offer.tracking_url;
-    transformedData.requirements = Offer.instructions;
-    transformedData.description = Offer.description;
-    transformedData.isDesktop = 1;
-    transformedData.isAndroid = 1;
-    transformedData.isIos = 1;
+  it('provider2: Offer should be failed transformed cuz offer_id validation not passed string to be integer', async () => {
+    try {
+      const offer = { ...offers[0] } as any;
+      offer.Offer.name = 123;
+      await providerTransform.transformToBase(offer);
+    } catch (error) {
+      expect(error.message).toBe('validation Error');
+      expect(Array.isArray(error.data)).toBe(true);
+    }
+  });
+  it('provider2: Offer should be failed transformed cuz name is required', async () => {
+    try {
+      const offer = { ...offers[0] } as any;
+      offer.Offer.name = undefined;
+      await providerTransform.transformToBase(offer);
+    } catch (error) {
+      expect(error.message).toBe('validation Error');
+      expect(Array.isArray(error.data)).toBe(true);
+    }
   });
 });

@@ -1,42 +1,25 @@
 import { Injectable } from '@nestjs/common';
-
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { OfferBaseDto } from './offer.base.dto';
+import { Provider1Dto } from './provider.1.dto';
 
-const iosValidations = ['iphone', 'ipad'];
-const androidValidations = ['android', 'google'];
-
-const isDesktop = ({ platform }) =>
-  platform.toLowerCase().includes('desktop') ? 1 : 0;
-
-const isAndroid = ({ platform, device }) => {
-  return platform.toLowerCase().includes('mobile') &&
-    androidValidations.includes(device.toLowerCase())
-    ? 1
-    : 0;
-};
-
-const isIos = ({ platform, device }) => {
-  return platform.toLowerCase().includes('mobile') &&
-    iosValidations.includes(device.toLowerCase())
-    ? 1
-    : 0;
-};
+interface ValidationError extends Error {
+  data: Array<{ [key: string]: string }>;
+}
 
 @Injectable()
 export class PayloadTransformer {
-  transformToBase(provider): OfferBaseDto {
-    const basePayload = new OfferBaseDto();
-    const { platform, device } = provider;
-    basePayload.name = provider.offer_id;
-    basePayload.description = provider.offer_name;
-    basePayload.requirements = provider.call_to_action;
-    basePayload.offerUrlTemplate = provider.offer_url;
-    basePayload.thumbnail = provider.image_url;
-    // I don't really like this validation part. this part can be improved based on data that we are receiving
-    // here could be used regex or some other smart way to validate depend on how we are receiving data
-    basePayload.isDesktop = isDesktop({ platform });
-    basePayload.isAndroid = isAndroid({ platform, device });
-    basePayload.isIos = isIos({ platform, device });
-    return basePayload;
+  async transformToBase(data: any): Promise<OfferBaseDto> {
+    const dtoClass = Provider1Dto;
+    const transformedData = plainToInstance(dtoClass, data);
+    const errors = await validate(transformedData);
+    const arrayErrors = errors.map((error) => error.constraints);
+    if (errors.length > 0) {
+      const err = new Error('validation Error') as ValidationError;
+      err.data = arrayErrors;
+      throw err;
+    }
+    return transformedData;
   }
 }

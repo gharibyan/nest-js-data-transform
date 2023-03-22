@@ -1,31 +1,29 @@
 import { Injectable } from '@nestjs/common';
-
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { OfferBaseDto } from './offer.base.dto';
+import { Provider2Dto } from './provider.2.dto';
 
-const MAPPING_SCHEMA = [
-  'externalOfferId:campaign_id',
-  'name:name',
-  'offerUrlTemplate:tracking_url',
-  'requirements:instructions',
-  'description:description',
-  'isDesktop:web',
-  'isAndroid:android',
-  'isIos:ios',
-];
+interface ValidationError extends Error {
+  data: Array<{ [key: string]: string }>;
+}
 
 @Injectable()
 export class PayloadTransformer {
-  transformToBase(provider): OfferBaseDto {
-    const basePayload = new OfferBaseDto();
-
-    const { Offer, OS } = provider;
-
-    return MAPPING_SCHEMA.reduce((acc, schema) => {
-      const [baseKey, providerKey] = schema;
-      if (basePayload[baseKey]) {
-        acc[baseKey] = Offer[providerKey] || OS[providerKey];
-      }
-      return acc;
-    }, {}) as OfferBaseDto;
+  async transformToBase(data: any): Promise<OfferBaseDto> {
+    const { Offer, OS } = data;
+    const dtoClass = Provider2Dto;
+    const transformedData = plainToInstance(dtoClass, {
+      ...Offer,
+      ...OS,
+    });
+    const errors = await validate(transformedData);
+    const arrayErrors = errors.map((error) => error.constraints);
+    if (errors.length > 0) {
+      const err = new Error('validation Error') as ValidationError;
+      err.data = arrayErrors;
+      throw err;
+    }
+    return transformedData;
   }
 }
